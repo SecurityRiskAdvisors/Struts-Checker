@@ -10,6 +10,8 @@
 
 #HOSTS = The target systems to run the SCRIPT against
 
+#SSH_AGENT = Whether to use SSH_AGENT or not to add the key (recommended)
+
 #No error handling in this version - exercise caution!
 
 USER="admin_user"
@@ -17,20 +19,54 @@ KEYFILE="/path/to/ssh/keyfile/.ssh/<keyname>.pem"
 SCRIPT="/path/to/script/struts_scripts/struts_id.sh"
 OUTPUTDIR="/path/to/results/struts_scripts/results/"
 HOSTS="/path/to/targets/struts_scripts/targets.txt"
+SSH_AGENT=0
 
 #Makes sure the output directory exists
 mkdir -p "${OUTPUTDIR}"
 
-while read TARGET; do
-	
-	##The script works by initiating a SSH connection to the remote host, executing a shell and reading the locally stored script in.  This avoids needing to upload the script to the remote host. 
-	echo "Checking ${TARGET}"
-	## Uncomment this line if the user needs to elevate to read all directories
-	#ssh "${USER}"@"${TARGET}" -i "${KEYFILE}" "sudo bash" < "${SCRIPT}" > "${OUTPUTDIR}""${TARGET}".txt
+#Use an SSH agent
+if [[ "${SSH_AGENT}" == 1 ]]; then 
 
-	## Uncomment this line if the user does not need to elevate to read all directories
-	#ssh "${USER}"@"${TARGET}" -i "${KEYFILE}" "bash" < "${SCRIPT}" > "${OUTPUTDIR}""${TARGET}".txt
-done < ${HOSTS}
+	# Setup an ssh-agent
+	eval $(ssh-agent -s)
+
+	# Add keyfile and wait for password to be added
+	ssh-add "${KEYFILE}"
+
+	# Added key, can verify
+	# ssh-add -l
+
+	while read TARGET; do
+		
+		##The script works by initiating a SSH connection to the remote host, executing a shell and reading the locally stored script in.  This avoids needing to upload the script to the remote host. 
+		echo "Checking ${TARGET}"
+		## Uncomment this line if the user needs to elevate to read all directories
+		#ssh "${USER}"@"${TARGET}" "sudo bash" < "${SCRIPT}" > "${OUTPUTDIR}""${TARGET}".txt
+	
+		## Uncomment this line if the user does not need to elevate to read all directories
+		#ssh "${USER}"@"${TARGET}" "bash" < "${SCRIPT}" > "${OUTPUTDIR}""${TARGET}".txt
+	done < ${HOSTS}
+
+	# Kill the ssh-agent we started
+	kill "${SSH_AGENT_PID}"
+
+
+else
+
+	while read TARGET; do
+		
+		##The script works by initiating a SSH connection to the remote host, executing a shell and reading the locally stored script in.  This avoids needing to upload the script to the remote host. 
+		echo "Checking ${TARGET}"
+		## Uncomment this line if the user needs to elevate to read all directories
+		#ssh "${USER}"@"${TARGET}" -i "${KEYFILE}" "sudo bash" < "${SCRIPT}" > "${OUTPUTDIR}""${TARGET}".txt
+	
+		## Uncomment this line if the user does not need to elevate to read all directories
+		#ssh "${USER}"@"${TARGET}" -i "${KEYFILE}" "bash" < "${SCRIPT}" > "${OUTPUTDIR}""${TARGET}".txt
+	done < ${HOSTS}
+
+
+fi;
+
 
 #clean up our session 
 exit 0
